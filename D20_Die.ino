@@ -115,7 +115,7 @@ int good[3]       = {29,31,32};
 int bad[3]        = {24,25,26};
 int three[2]      = {3,30};
 int crit[3]       = {34,35,36};
-int fail[1]       = {37};
+int fail[2]       = {37,39};
 int lowBattery[2] = {27,28};
 
 // ISR Function that detects freefall 
@@ -205,7 +205,7 @@ void loop()
       adxl.getInterruptSource();
       //delay(1000);
       mp3.playGlobalTrack(40);   //diablo throw sound
-      playWait();
+      playWait(); 
       triggered = false;
       break;
     }
