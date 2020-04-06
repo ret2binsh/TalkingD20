@@ -110,13 +110,14 @@ int coords[20][3] = {
 };
 
 // mappings for soundbyte to track index num
+int bootup[3]     = {38,41,42};
 int announce[3]   = {21,22,23};
 int good[3]       = {29,31,32};
 int bad[3]        = {24,25,26};
 int three[2]      = {3,30};
 int crit[3]       = {34,35,36};
-int fail[2]       = {37,39};
-int lowBattery[2] = {27,28};
+int fail[3]       = {37,39,43};
+int lowBattery[3] = {27,28,44};
 
 // ISR Function that detects freefall 
 void wakeUp(){
@@ -125,7 +126,7 @@ void wakeUp(){
 
 void setup() 
 {
-  delay(1000);
+  delay(700);
   randomSeed(analogRead(0));
   Serial.begin(9600);
   Serial.println("initializing...");
@@ -187,7 +188,8 @@ void loop()
   if (first) {
     mp3.begin();
     mp3.setVolume(15);
-    mp3.playGlobalTrack(38);
+    long randNum = random(3);
+    mp3.playGlobalTrack(bootup[randNum]);
     playWait();
     first = false;
   }
@@ -218,7 +220,7 @@ void loop()
   }
   int percentage = batteryCheck();
   if (percentage <= 25) {
-    uint8_t randNum = random(2);
+    uint8_t randNum = random(3);
     mp3.playGlobalTrack(lowBattery[randNum]);
     playWait();
   }
@@ -298,10 +300,7 @@ void calculateFace()
   // 20 plays a critical chance sound byte
   randNum = random(3);
   if (face == 1) {
-    if (randNum == 0)
-      mp3.playGlobalTrack(fail[0]);
-    else
-      mp3.playGlobalTrack(fail[1]);
+    mp3.playGlobalTrack(fail[randNum]);
     playWait(); 
   }
   else if (face <= 3){
