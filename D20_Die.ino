@@ -110,12 +110,13 @@ int coords[20][3] = {
 };
 
 // mappings for soundbyte to track index num
-int announce[3] = {21,22,23};
-int good[3]     = {29,31,32};
-int bad[3]      = {24,25,26};
-int three[2]    = {3,30};
-int crit[3]     = {34,35,36};
-int fail[1]     = {37};
+int announce[3]   = {21,22,23};
+int good[3]       = {29,31,32};
+int bad[3]        = {24,25,26};
+int three[2]      = {3,30};
+int crit[3]       = {34,35,36};
+int fail[1]       = {37};
+int lowBattery[2] = {27,28};
 
 // ISR Function that detects freefall 
 void wakeUp(){
@@ -124,13 +125,10 @@ void wakeUp(){
 
 void setup() 
 {
+  delay(1000);
   randomSeed(analogRead(0));
   Serial.begin(9600);
   Serial.println("initializing...");
-  mp3.begin();
-  mp3.setVolume(20);
-  mp3.playGlobalTrack(33);
-  playWait();
 
   // setup the adxl global settings and thresholds
   adxl.powerOn();
@@ -153,24 +151,6 @@ void setup()
   Serial.println("starting...");
 }
 
-/* ====================================== Track Wait Function =============================================== */
-
-// Run the mp3.loop until the track is finished playing.
-// This is used to ensure subsequent tracks will play
-// during the face reading function.
-void playWait()
-{
-  int finished = 0;
-  while(1) {
-    mp3.loop();
-    finished = digitalRead(isTrackComplete);
-    if (trackComplete && finished)
-      break;
-  }
-  trackComplete = false;
-
-}
-
 /* ====================================== MCU Sleep Handler =============================================== */
 
 // Sleep setup function that sets up the adxl interrupt and clears registers
@@ -185,15 +165,6 @@ void mcuSleep()
   power_all_disable();
   sleep_enable();
   set_sleep_mode(SLEEP_MODE_PWR_DOWN);
-  
-
-  // Unset all interrupt mappings and read interrupt source to clear the register
-  // prior to resetting the interrupt register. Ensures it is clear prior to sleep
-  //adxl.setImportantInterruptMapping(0, 0, 0, 0, 0);
-  //adxl.FreeFallINT(0);
-  
-  //adxl.setImportantInterruptMapping(0, 0, 1, 0, 0);
-  //adxl.FreeFallINT(1);
 
   // Enable ATMEGA324p interrupts 1 clock cycle prior to sleep to guarantee it goes
   // to sleep and is not interrupted prior
@@ -210,10 +181,17 @@ void mcuSleep()
 }
 
 /* ====================================== MAIN PROGRAM LOOP =============================================== */
-
+bool first = true;
 void loop() 
 {
-  //mcuSleep();
+  if (first) {
+    mp3.begin();
+    mp3.setVolume(15);
+    mp3.playGlobalTrack(38);
+    playWait();
+    first = false;
+  }
+
   triggered = false;
   adxl.getInterruptSource();
 
@@ -225,7 +203,9 @@ void loop()
     // break out of the infinite while loop once a trigger is detected
     if (triggered){
       adxl.getInterruptSource();
-      delay(1000);
+      //delay(1000);
+      mp3.playGlobalTrack(40);   //diablo throw sound
+      playWait();
       triggered = false;
       break;
     }
@@ -235,6 +215,12 @@ void loop()
   // the given face and play the applicable sound bytes
   if (stabilizeD20()){
     calculateFace();
+  }
+  int percentage = batteryCheck();
+  if (percentage <= 25) {
+    uint8_t randNum = random(2);
+    mp3.playGlobalTrack(lowBattery[randNum]);
+    playWait();
   }
 }
 
@@ -284,6 +270,7 @@ void calculateFace()
   
   long randNum;
   randNum = random(3);
+  mp3.setVolume(15);
   mp3.playGlobalTrack(announce[randNum]);
   playWait();
 
@@ -311,8 +298,11 @@ void calculateFace()
   // 20 plays a critical chance sound byte
   randNum = random(3);
   if (face == 1) {
-    mp3.playGlobalTrack(fail[0]);
-    playWait();
+    if (randNum == 0)
+      mp3.playGlobalTrack(fail[0]);
+    else
+      mp3.playGlobalTrack(fail[1]);
+    playWait(); 
   }
   else if (face <= 3){
     mp3.playGlobalTrack(bad[randNum]);
@@ -331,6 +321,25 @@ void calculateFace()
       mp3.playGlobalTrack(crit[random(1,3)]);
     }
   }
+}
+
+/* ====================================== Track Wait Function =============================================== */
+
+// Run the mp3.loop until the track is finished playing.
+// This is used to ensure subsequent tracks will play
+// during the face reading function.
+void playWait()
+{
+  int finished = 0;
+  while(1) {
+    mp3.loop();
+    finished = digitalRead(isTrackComplete);
+    if (trackComplete && finished)
+      break;
+  }
+  mp3.setVolume(15);
+  trackComplete = false;
+
 }
 
 /* ====================================== D20 Stabilization Function =========================================== */
@@ -377,4 +386,82 @@ bool stabilizeD20()
     }
   }
   return false;
+}
+
+/* ======================================= Battery Voltage Check =========================================== */
+// Leverage the internal Bandgap and AVcc Voltage reference in order to calculate the Voltage level
+// of the LiPo which can be used to calculate the current State of Charge
+
+// LiPo Battery charge to Percentage Chart
+struct lipoChargeChart {
+    
+    float voltage;
+    int    percentage;
+};
+
+struct lipoChargeChart lipoChart [19] = {
+    {3.69, 10},              // 10%  Battery SoC
+    {3.71, 15},              // 15%  Battery SoC
+    {3.73, 20},              // 20%  Battery SoC
+    {3.75, 25},              // 25%  Battery SoC
+    {3.77, 30},              // 30%  Battery SoC
+    {3.79, 35},              // 35%  Battery SoC
+    {3.80, 40},              // 40%  Battery SoC
+    {3.82, 45},              // 45%  Battery SoC
+    {3.84, 50},              // 50%  Battery SoC
+    {3.85, 55},              // 55%  Battery SoC
+    {3.87, 60},              // 60%  Battery SoC
+    {3.91, 65},              // 65%  Battery SoC
+    {3.95, 70},              // 70%  Battery SoC
+    {3.98, 75},              // 75%  Battery SoC
+    {4.02, 80},              // 80%  Battery SoC
+    {4.08, 85},              // 85%  Battery SoC
+    {4.11, 90},              // 90%  Battery SoC
+    {4.15, 95},              // 95%  Battery SoC
+    {4.20, 100},             // 100% Battery SoC
+};
+
+// Get readings and determine SoC. Return the battery percentage
+int batteryCheck() {
+  int i, prev;
+  uint8_t count;
+  float mV[4];
+  float readings[4];
+  float average_mV;
+
+  ADMUX  = _BV(REFS0) |                              // AVcc voltage Ref
+           _BV(MUX3)  | _BV(MUX2) | _BV(MUX1);       // Bandgap (1.1V)
+  ADCSRA = _BV(ADEN)  |                              // Enable ADC
+           _BV(ADPS2) | _BV(ADPS1);                  // 1/64 Prescaler (8 MHz -> 125 KHz)
+
+  // Continually take ADC readings until we have 4 stable values within 10 mV of each other
+  Serial.println("Getting battery readings.");
+  for(prev=9999, count=0; count < 4; ) {
+    for (ADCSRA |= _BV(ADSC); ADCSRA & _BV(ADSC); ); // Start, wait for ADC conv to complete
+    i = ADC;                                         // set i to current result
+    Serial.print("ADC reading: ");
+    Serial.print(ADC);
+    mV[count] = i ? (1.1L * 1024 / i) : 0;          // Scale to milliVolts
+    Serial.print("mV reading: ");
+    Serial.println(mV[count]);
+    Serial.print("Count: ");
+    Serial.println(count);
+    if(abs((int)mV[count] - prev) <= 10) count++;    // Increment on stable reading
+    else                                 count=0;    // delta too large, reset count
+    prev = mV[count];
+  }
+  ADCSRA = 0;                                        // disable ADC
+
+  average_mV = (mV[0] + mV[1] + mV[2] + mV[3]) / 4;
+  Serial.print("Averge mV: ");
+  Serial.print(average_mV);
+  for (int j=0; j<19; j++) {
+    if (average_mV <= lipoChart[j].voltage) {
+      Serial.print("SoC is ");
+      Serial.println(lipoChart[j].percentage);
+      return lipoChart[j].percentage;
+    }
+  }
+  Serial.println("Failed to get percentage.");
+  return 0;
 }
