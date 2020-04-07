@@ -8,6 +8,13 @@
  *    play the applicable sound bytes aka, Roll Announcement, Face Value,
  *    and Banter.
  *    
+ *  -BOM:
+ *    ADXL345 Accelerometer - https://www.amazon.com/gp/product/B01DLG4OU6
+ *    DFPlayer Mini         - https://www.amazon.com/gp/product/B07T8CTKK6
+ *    2A 5V LiPo Charger    - https://www.amazon.com/gp/product/B07PZT3ZW2
+ *    3.7v 360mAh LiPo      - https://www.amazon.com/gp/product/B07BTH72FJ
+ *    Arduino Nano          - https://www.amazon.com/Arduino-A000005-ARDUINO-Nano/dp/B0097AU5OU/
+ *    
  *  - Credit to Phillip Burgess' Adafruit post for project idea.
  *    https://learn.adafruit.com/talking-d20-20-sided-gaming-die/overview
  *    
